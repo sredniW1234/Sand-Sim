@@ -1,6 +1,6 @@
 import pygame, sys
 from pygame.locals import *
-import random
+# import random
 
 # pylint: disable=no-member
 
@@ -74,6 +74,7 @@ class Cell(pygame.sprite.Sprite):
     self.position = (self.position[0],
                      self.position[1] + self.acceleration * 20)
     self.rect = self.position
+    draw_onto_screen("movable")
 
 
 # Draws the grid
@@ -83,6 +84,18 @@ def drawGrid():
       rect = pygame.Rect(x, y, CELL_SIZE, CELL_SIZE)
       sprites.append(
         pygame.draw.rect(base_surf, (150, 150, 150), rect, LINE_THICKNESS))
+
+def draw_onto_screen(type):
+  match type:
+    case "movable":
+      movable_group.update()  # updates the movable_group
+      movable_group.draw(base_surf)  # draws the movable_group
+    case "solid":
+      solid_group.update()  # updates the solid_group
+      solid_group.draw(base_surf)  # draws the solid_group
+    case "liquid":
+      liquid_group.update()  # updates the liquid_groud
+      liquid_group.draw(base_surf)  # draws the liquid_group
 
 
 # game loop
@@ -134,7 +147,7 @@ while True:
         if base_surf.get_at((
             movable.position[0] + 2 * LINE_THICKNESS,
             movable.position[1] + CELL_SIZE + CELL_SIZE // 2,
-        )) == (255, 255, 255):
+        )) in [(255, 255, 255), (194, 178, 128)]:
           # checks if the sand can fall to the left
           if base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (255, 255, 255) and \
               base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (194, 178, 128) and \
@@ -159,34 +172,7 @@ while True:
           else:
             movable.falling = False
 
-        # Checks for sand
-        elif base_surf.get_at((
-            movable.position[0] + 2 * LINE_THICKNESS,
-            movable.position[1] + CELL_SIZE + CELL_SIZE // 2,
-        )) == (194, 178, 128):
-          # checks if the sand can fall to the left
-          if base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (194, 178, 128) and \
-              base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (255, 255, 255) and \
-              not movable.falling and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255)\
-                  and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255):
-            # set the position to down 1 and left 1
-            movable.position = (movable.position[0] - CELL_SIZE,
-                                movable.position[1])
-            movable.acceleration = 1
-            movable.fall()
 
-          # checks if the sand can fall to the right
-          elif base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (194, 178, 128) and \
-              base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (255, 255, 255) and \
-              not movable.falling and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255)\
-                  and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255):
-            # set the position to down 1 and right 1
-            movable.position = (movable.position[0] + CELL_SIZE,
-                                movable.position[1])
-            movable.acceleration = 1
-            movable.fall()
-          else:
-            movable.falling = False
         else:
           movable.acceleration = 1
           movable.fall()
@@ -194,13 +180,9 @@ while True:
         movable_group.remove(movable)
     timer = pygame.time.get_ticks()
   # fmt: on
-  base_surf.fill((0, 0, 0, 0))  # clears the screen for the next fram
-  movable_group.update()  # updates the movable_group
-  movable_group.draw(base_surf)  # draws the movable_group
-  solid_group.update()  # updates the solid_group
-  solid_group.draw(base_surf)  # draws the solid_group
-  liquid_group.update()  # updates the liquid_groud
-  liquid_group.draw(base_surf)  # draws the liquid_group
+  base_surf.fill((0, 0, 0, 0))  # clears the screen for the next frame
+  draw_onto_screen("movable")
+  draw_onto_screen("solid")
 
   # draws the grid
   drawGrid()
