@@ -1,17 +1,10 @@
-import pygame, sys
-from pygame.locals import *
 import numpy as np
+import pygame
+import sys
+from pygame.locals import *
+import cProfile
 
 # import random
-
-a = np.arange(64)
-a.shape = [8, 8]
-
-print(a)
-# print()
-num = np.where(a == 12)
-print(int(num[0]), int(num[1]))
-print(a[int(num[0]-1):int(num[1]+2),int(num[0])-1:int(num[1])+2], "\n")
 
 pygame.init()
 
@@ -39,17 +32,18 @@ DISPLAYSURF = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 DISPLAYSURF.fill(BLACK)
 pygame.display.set_caption("Game")
 
-# basic vars
-base_surf = pygame.Surface(
-    (SCREEN_WIDTH, SCREEN_HEIGHT))  # base surface to blit everything onto
+# Variables
+base_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))  # base surface to blit everything onto
 sprites = []  # all the rects that make up the grid
+Cell_Array = np.zeros(shape=(SCREEN_HEIGHT // CELL_SIZE, SCREEN_WIDTH // CELL_SIZE))  # Where all cell will be stored
 
-# vars
 valid_substance = [
     "sand",
     "solid",
     "empty",
 ]  # valid substances each cell can be
+
+# Sprite Groups
 movable_group = pygame.sprite.Group()  # Group for all movable cells
 liquid_group = pygame.sprite.Group()  # Group for all liquid cells
 solid_group = pygame.sprite.Group()  # Group for all solid cells
@@ -60,38 +54,48 @@ Cell_Type = valid_substance[0]
 class Cell(pygame.sprite.Sprite):
 
     def __init__(self, position, substance="sand"):
-        self.falling = True
+        # self.falling = True
         super().__init__()
         self.image = pygame.Surface((CELL_SIZE, CELL_SIZE))  # set the surface
-        # self.position = position  # set the position
         self.rect = position  # set the rect to the position
+        self.substance = substance
         self.acceleration = 0
 
         if substance == "sand":
             self.image.fill((194, 178, 128))
             movable_group.add(self)
+            Cell_Array[position[1] // CELL_SIZE][position[0] // CELL_SIZE] = 2
         elif substance == "solid":
             self.image.fill((255, 255, 255))
             solid_group.add(self)
             self.falling = False
+            Cell_Array[position[1] // CELL_SIZE][position[0] // CELL_SIZE] = 1
 
+    # Moves cell downwards
     def fall(self):
-        # self.position =
-        self.rect = (self.rect[0], self.rect[1] + self.acceleration * 20)
-        draw_onto_screen("movable")
+        try:
+            if Cell_Array[(movable.rect[1] + CELL_SIZE) // CELL_SIZE][movable.rect[0] // CELL_SIZE] == 0.0:
+                movable.acceleration = 1
+            match self.substance:
+                case "sand":
+                    Cell_Array[self.rect[1] // CELL_SIZE][self.rect[0] // CELL_SIZE] = 0
+                    self.rect = (self.rect[0], self.rect[1] + self.acceleration * 20)
+                    Cell_Array[self.rect[1] // CELL_SIZE][self.rect[0] // CELL_SIZE] = 2
+                    draw_onto_screen("movable")
+        except:
+            movable_group.remove(self)
 
 
 # Draws the grid
-def drawGrid():
+def draw_grid():
     for x in range(0, SCREEN_WIDTH, CELL_SIZE):
         for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
             rect = pygame.Rect(x, y, CELL_SIZE, CELL_SIZE)
-            sprites.append(
-                pygame.draw.rect(base_surf, (150, 150, 150), rect, LINE_THICKNESS))
+            sprites.append(pygame.draw.rect(base_surf, (150, 150, 150), rect, LINE_THICKNESS))
 
 
-def draw_onto_screen(Type):
-    match Type:
+def draw_onto_screen(cell_type):
+    match cell_type:
         case "movable":
             movable_group.update()  # updates the movable_group
             movable_group.draw(base_surf)  # draws the movable_group
@@ -101,7 +105,6 @@ def draw_onto_screen(Type):
         case "liquid":
             liquid_group.update()  # updates the liquid_groud
             liquid_group.draw(base_surf)  # draws the liquid_group
-
 
 # game loop
 while True:
@@ -115,14 +118,11 @@ while True:
         if pygame.mouse.get_pressed()[0]:
             # check if we should delete the cell
             if Cell_Type == "empty":
-                # fmt: off
                 x, y = pygame.mouse.get_pos()
                 # loop though all sprites
-                for i in (solid_group.sprites() + movable_group.sprites() +
-                          liquid_group.sprites()):
+                for i in (solid_group.sprites() + movable_group.sprites() + liquid_group.sprites()):
                     # check if mouse is over the sprite
-                    if i.position == (x // CELL_SIZE * CELL_SIZE,
-                                      y // CELL_SIZE * CELL_SIZE):
+                    if i.position == (x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE):
                         # delete it
                         if i in solid_group:
                             solid_group.remove(i)
@@ -132,9 +132,9 @@ while True:
                             liquid_group.remove(i)
             else:
                 x, y = pygame.mouse.get_pos()
-                # (x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE) locks it to the grid
-                cell = Cell((x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE),
-                            Cell_Type)
+                if 0 < x < SCREEN_WIDTH and 0 < y < SCREEN_HEIGHT:
+                    cell = Cell((x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE), Cell_Type)
+
         # check if we should swap the type
         if event.type == pygame.MOUSEBUTTONDOWN:
             if pygame.mouse.get_pressed()[2]:
@@ -143,15 +143,9 @@ while True:
                 text = text_font.render(Cell_Type.upper(), True, GREEN)
 
     # cell logic for movable solids
-    # loop through and check if there is a block under it
-
     if pygame.time.get_ticks() - timer > CellFramePerSec:
         for movable in movable_group.sprites()[::-1]:
-            try:
-                pass
-                # print(base_surf.get_at((movable.rect[0] + LINE_THICKNESS, movable.rect[1] + LINE_THICKNESS)))
-            except:
-                movable_group.remove(movable)
+            movable.fall()
             # try:
             # fmt: off
 
@@ -197,7 +191,7 @@ while True:
     draw_onto_screen("solid")
 
     # draws the grid
-    drawGrid()
+    draw_grid()
 
     base_surf.blit(text, text_rect)
     # displays the base_surf
