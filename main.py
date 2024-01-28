@@ -1,17 +1,19 @@
+import random
+
 import numpy as np
 import pygame
 import sys
 from pygame.locals import *
-import cProfile
+from line_profiler import *
 
 # import random
 
 pygame.init()
 
-FPS = 60
+FPS = 100
 FramePerSec = pygame.time.Clock()
 timer = pygame.time.get_ticks()
-CellFramePerSec = 20
+CellFramePerSec = 30
 
 # Predefined some colors
 GREEN = (0, 255, 0)
@@ -20,7 +22,7 @@ BLACK = (0, 0, 0)
 # Screen information
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-CELL_SIZE = 20
+CELL_SIZE = 4
 LINE_THICKNESS = 1
 
 text_font = pygame.font.Font("freesansbold.ttf", 32)
@@ -64,25 +66,39 @@ class Cell(pygame.sprite.Sprite):
         if substance == "sand":
             self.image.fill((194, 178, 128))
             movable_group.add(self)
-            Cell_Array[position[1] // CELL_SIZE][position[0] // CELL_SIZE] = 2
+            Cell_Array[position[1] // CELL_SIZE, position[0] // CELL_SIZE] = 2
         elif substance == "solid":
             self.image.fill((255, 255, 255))
             solid_group.add(self)
             self.falling = False
-            Cell_Array[position[1] // CELL_SIZE][position[0] // CELL_SIZE] = 1
+            Cell_Array[position[1] // CELL_SIZE, position[0] // CELL_SIZE] = 1
 
     # Moves cell downwards
+    @profile
     def fall(self):
         try:
-            if Cell_Array[(movable.rect[1] + CELL_SIZE) // CELL_SIZE][movable.rect[0] // CELL_SIZE] == 0.0:
-                movable.acceleration = 1
-            match self.substance:
-                case "sand":
-                    Cell_Array[self.rect[1] // CELL_SIZE][self.rect[0] // CELL_SIZE] = 0
-                    self.rect = (self.rect[0], self.rect[1] + self.acceleration * 20)
-                    Cell_Array[self.rect[1] // CELL_SIZE][self.rect[0] // CELL_SIZE] = 2
-                    draw_onto_screen("movable")
+            if Cell_Array[(self.rect[1] + CELL_SIZE) // CELL_SIZE, self.rect[0] // CELL_SIZE] == 0.0:
+                # self.acceleration = 1
+                if self.substance == "sand":
+                    Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 0
+                    self.rect = (self.rect[0], self.rect[1] + 1 * CELL_SIZE)
+                    Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 2
+                    base_surf.blit(self.image, self.rect)
+            elif random.choice([0, 1]):
+                if Cell_Array[(self.rect[1] + CELL_SIZE) // CELL_SIZE, (self.rect[0] - CELL_SIZE) // CELL_SIZE] == 0.0 and\
+                        Cell_Array[self.rect[1] // CELL_SIZE, (self.rect[0] - CELL_SIZE) // CELL_SIZE] == 0.0:
+                    Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 0
+                    self.rect = (self.rect[0] - CELL_SIZE, self.rect[1] + CELL_SIZE)
+                    Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 2
+                    base_surf.blit(self.image, self.rect)
+            elif Cell_Array[(self.rect[1] + CELL_SIZE) // CELL_SIZE, (self.rect[0] + CELL_SIZE) // CELL_SIZE] == 0.0 and\
+                    Cell_Array[self.rect[1] // CELL_SIZE, (self.rect[0] + CELL_SIZE) // CELL_SIZE] == 0.0:
+                Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 0
+                self.rect = (self.rect[0] + CELL_SIZE, self.rect[1] + CELL_SIZE)
+                Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 2
+                base_surf.blit(self.image, self.rect)
         except:
+            Cell_Array[self.rect[1] // CELL_SIZE, self.rect[0] // CELL_SIZE] = 0
             movable_group.remove(self)
 
 
@@ -94,17 +110,6 @@ def draw_grid():
             sprites.append(pygame.draw.rect(base_surf, (150, 150, 150), rect, LINE_THICKNESS))
 
 
-def draw_onto_screen(cell_type):
-    match cell_type:
-        case "movable":
-            movable_group.update()  # updates the movable_group
-            movable_group.draw(base_surf)  # draws the movable_group
-        case "solid":
-            solid_group.update()  # updates the solid_group
-            solid_group.draw(base_surf)  # draws the solid_group
-        case "liquid":
-            liquid_group.update()  # updates the liquid_groud
-            liquid_group.draw(base_surf)  # draws the liquid_group
 
 # game loop
 while True:
@@ -122,18 +127,23 @@ while True:
                 # loop though all sprites
                 for i in (solid_group.sprites() + movable_group.sprites() + liquid_group.sprites()):
                     # check if mouse is over the sprite
-                    if i.position == (x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE):
+                    if i.rect == (x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE):
                         # delete it
                         if i in solid_group:
+                            Cell_Array[y // CELL_SIZE, x // CELL_SIZE] = 0
                             solid_group.remove(i)
                         if i in movable_group:
+                            Cell_Array[y // CELL_SIZE, x // CELL_SIZE] = 0
                             movable_group.remove(i)
                         if i in liquid_group:
+                            Cell_Array[y // CELL_SIZE, x // CELL_SIZE] = 0
                             liquid_group.remove(i)
             else:
                 x, y = pygame.mouse.get_pos()
                 if 0 < x < SCREEN_WIDTH and 0 < y < SCREEN_HEIGHT:
-                    cell = Cell((x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE), Cell_Type)
+                    # print(x // CELL_SIZE * CELL_SIZE // CELL_SIZE, x // CELL_SIZE)
+                    if Cell_Array[y // CELL_SIZE, x // CELL_SIZE] == 0:
+                        Cell((x // CELL_SIZE * CELL_SIZE, y // CELL_SIZE * CELL_SIZE), Cell_Type)
 
         # check if we should swap the type
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -144,54 +154,18 @@ while True:
 
     # cell logic for movable solids
     if pygame.time.get_ticks() - timer > CellFramePerSec:
+
         for movable in movable_group.sprites()[::-1]:
             movable.fall()
-            # try:
-            # fmt: off
-
-            # Checks for solid underneath
-            #   if base_surf.get_at((
-            #       movable.position[0] + 2 * LINE_THICKNESS,
-            #       movable.position[1] + CELL_SIZE + CELL_SIZE // 2,
-            #   )) in [(255, 255, 255), (194, 178, 128)]:
-            #     # checks if the sand can fall to the left
-            #     if base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (255, 255, 255) and \
-            #         base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (194, 178, 128) and \
-            #         not movable.falling and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255)\
-            #             and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255):
-            #       # set the position to down 1 and left 1
-            #       movable.position = (movable.position[0] - CELL_SIZE,
-            #                           movable.position[1])
-            #       movable.acceleration = 1
-            #       movable.fall()
-            #
-            #     # checks if the sand can fall to the right
-            #     elif base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (255, 255, 255) and \
-            #         base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + CELL_SIZE + CELL_SIZE // 2)) != (194, 178, 128) and \
-            #         not movable.falling and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS + CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255)\
-            #             and base_surf.get_at((movable.position[0] + 2 * LINE_THICKNESS - CELL_SIZE, movable.position[1] + 2 * LINE_THICKNESS)) != (255, 255, 255):
-            #       # set the position to down 1 and right 1
-            #       movable.position = (movable.position[0] + CELL_SIZE,
-            #                           movable.position[1])
-            #       movable.acceleration = 1
-            #       movable.fall()
-            #     else:
-            #       movable.falling = False
-            #
-            #
-            #   else:
-            #     movable.acceleration = 1
-            #     movable.fall()
-            # except IndexError:
-            #   movable_group.remove(movable)
         timer = pygame.time.get_ticks()
     # fmt: on
     base_surf.fill((0, 0, 0, 0))  # clears the screen for the next frame
-    draw_onto_screen("movable")
-    draw_onto_screen("solid")
+    movable_group.draw(base_surf)  # draws the movable_group
+    solid_group.draw(base_surf)  # draws the movable_group
+    # movable_group.draw(base_surf)  # draws the movable_group
 
     # draws the grid
-    draw_grid()
+    # draw_grid()
 
     base_surf.blit(text, text_rect)
     # displays the base_surf
